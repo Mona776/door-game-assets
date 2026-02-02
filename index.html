@@ -1,0 +1,210 @@
+<!doctype html>
+<html>
+<head>
+	<meta charset="UTF-8">
+
+	<!-- Place this data between the <head> tags of your website -->
+	<title>it's a(door)able</title>
+	<meta name="description" content="a one-minute minigame."/>
+	<link rel="icon" type="image/png" href="favicon.png">
+
+	<!-- Schema.org markup for Google+ -->
+	<meta itemprop="name" content="it's a(door)able">
+	<meta itemprop="description" content="a one-minute minigame.">
+	<meta itemprop="image" content="http://ncase.me/door/thumbnail.png">
+
+	<!-- Open Graph data -->
+	<meta property="og:title" content="it's a(door)able">
+	<meta property="og:type" content="website">
+	<meta property="og:url" content="http://ncase.me/door/">
+	<meta property="og:image" content="http://ncase.me/door/thumbnail.png">
+	<meta property="og:description" content="a one-minute minigame.">
+	<meta property="og:site_name" content="it's a(door)able">
+
+	<!-- Style -->
+	<link rel="stylesheet" type="text/css" href="css/index.css"> 
+
+</head>
+<body>
+
+	<div id="loading"><div>LOADING</div></div>
+
+	<!-- 地图选择界面 -->
+	<div id="screen_select">
+		<div id="select_container">
+		
+		<!-- 步骤指示器 -->
+		<div class="step-indicator">
+			<div class="step active" data-step="1">
+				<div class="step-number">1</div>
+				<div class="step-label">选择地图</div>
+			</div>
+			<div class="step-divider"></div>
+			<div class="step" data-step="2">
+				<div class="step-number">2</div>
+				<div class="step-label">添加留言</div>
+			</div>
+		</div>
+		
+		<!-- 步骤1：选择地图 -->
+		<div id="step_1" class="step-content active">
+		<h1 style="font-size: 48px; margin-bottom: 20px;">选择你的地图</h1>
+		<p class="hint">点击下方按钮输入字母、数字或爱心 ♥（最多2行，每行5个字符）<br>不输入则使用默认地图：I♥U</p>
+		
+		<textarea id="message_input" placeholder="点击下方按钮输入...（默认：I♥U）" rows="2" readonly></textarea>
+			
+			<div id="char_buttons">
+				<div class="char_row">
+					<button class="char_btn" data-char="A">A</button>
+					<button class="char_btn" data-char="B">B</button>
+					<button class="char_btn" data-char="C">C</button>
+					<button class="char_btn" data-char="D">D</button>
+					<button class="char_btn" data-char="E">E</button>
+					<button class="char_btn" data-char="F">F</button>
+					<button class="char_btn" data-char="G">G</button>
+					<button class="char_btn" data-char="H">H</button>
+					<button class="char_btn" data-char="I">I</button>
+				</div>
+				<div class="char_row">
+					<button class="char_btn" data-char="J">J</button>
+					<button class="char_btn" data-char="K">K</button>
+					<button class="char_btn" data-char="L">L</button>
+					<button class="char_btn" data-char="M">M</button>
+					<button class="char_btn" data-char="N">N</button>
+					<button class="char_btn" data-char="O">O</button>
+					<button class="char_btn" data-char="P">P</button>
+					<button class="char_btn" data-char="Q">Q</button>
+					<button class="char_btn" data-char="R">R</button>
+				</div>
+				<div class="char_row">
+					<button class="char_btn" data-char="S">S</button>
+					<button class="char_btn" data-char="T">T</button>
+					<button class="char_btn" data-char="U">U</button>
+					<button class="char_btn" data-char="V">V</button>
+					<button class="char_btn" data-char="W">W</button>
+					<button class="char_btn" data-char="X">X</button>
+					<button class="char_btn" data-char="Y">Y</button>
+					<button class="char_btn" data-char="Z">Z</button>
+					<button class="char_btn" data-char="♥">♥</button>
+				</div>
+			<div class="char_row">
+				<button class="char_btn" data-char="0">0</button>
+				<button class="char_btn" data-char="1">1</button>
+				<button class="char_btn" data-char="2">2</button>
+				<button class="char_btn" data-char="3">3</button>
+				<button class="char_btn" data-char="4">4</button>
+				<button class="char_btn" data-char="5">5</button>
+				<button class="char_btn" data-char="6">6</button>
+				<button class="char_btn" data-char="7">7</button>
+				<button class="char_btn" data-char="8">8</button>
+				<button class="char_btn" data-char="9">9</button>
+				<button id="newline_btn" class="char_btn" style="background: #2196F3; color: white;">⏎ 换行</button>
+			</div>
+			</div>
+			
+		<div style="margin-top: 20px;">
+			<button id="backspace_btn" style="padding: 10px 20px; font-size: 18px; margin-right: 10px; cursor: pointer;">⌫ 删除</button>
+			<button id="clear_btn" style="padding: 10px 20px; font-size: 18px; margin-right: 10px; cursor: pointer;">清空</button>
+			<button id="next_step_btn" style="padding: 15px 40px; font-size: 24px; background: #2196F3; color: white; border: none; border-radius: 8px; cursor: pointer;">下一步 →</button>
+			<button id="start_game_btn" style="padding: 15px 40px; font-size: 24px; background: #4CAF50; color: white; border: none; border-radius: 8px; cursor: pointer;">开始游戏</button>
+		</div>
+		</div>
+		
+		<!-- 步骤2：添加留言 -->
+		<div id="step_2" class="step-content">
+		<h1 style="font-size: 48px; margin-bottom: 20px;">添加留言</h1>
+		<p class="hint">给你的朋友留一条消息（可选）</p>
+		
+		<div style="margin-bottom: 25px;">
+			<label style="display: block; font-size: 16px; color: #666; margin-bottom: 10px;">你选择的地图：</label>
+			<div id="selected_map_display" style="background: #f5f5f5; padding: 15px; border-radius: 5px; font-size: 24px; text-align: center; color: #333; font-weight: bold; min-height: 60px; display: flex; align-items: center; justify-content: center;">
+				I♥U
+			</div>
+		</div>
+		
+		<textarea id="custom_message_input" placeholder="在这里输入你的留言...（可选）" rows="3" style="width: 100%; padding: 12px; font-size: 18px; border: 2px solid #ccc; border-radius: 5px; font-family: Helvetica, Arial, sans-serif; resize: none;"></textarea>
+		
+		<div style="margin-top: 20px;">
+			<button id="prev_step_btn" style="padding: 10px 20px; font-size: 18px; margin-right: 10px; cursor: pointer; background: #999; color: white; border: none; border-radius: 5px;">← 上一步</button>
+			<button id="generate_link_btn" style="padding: 10px 20px; font-size: 18px; margin-right: 10px; cursor: pointer;">🔗 生成挑战链接</button>
+			<button id="save_map_btn" style="padding: 10px 20px; font-size: 18px; margin-right: 10px; cursor: pointer; background: #FF9800; color: white; border: none; border-radius: 5px;">💾 保存</button>
+			<button id="start_game_step2_btn" style="padding: 15px 40px; font-size: 24px; background: #4CAF50; color: white; border: none; border-radius: 8px; cursor: pointer;">开始游戏</button>
+		</div>
+		
+		<div id="share_link_container" style="display:none; margin-top:15px;">
+			<p style="font-size:14px; color:#888;">分享此链接，邀请朋友挑战你创建的地图：</p>
+			<div style="display: flex; gap: 10px; align-items: stretch;">
+				<input id="share_link_input" readonly style="flex: 1; padding:10px; border:1px solid #ccc; border-radius:5px;">
+				<button id="copy_link_btn" style="padding: 10px 20px; background: #5c9ead; color: white; border: none; border-radius: 5px; cursor: pointer; white-space: nowrap;">📋 复制</button>
+			</div>
+		</div>
+		</div>
+		
+	</div>
+	</div>
+
+	<div id="whole_container">
+
+		<!--span style="display:none"-->
+		<div id="screen_one">
+			<canvas id="canvas_intro"></canvas>
+			<button id="custom_map_btn_intro" class="custom_map_btn">CUSTOM MAP</button>
+		</div>
+
+		<div id="screen_two">
+			<div id="canvas_container">
+				<!-- 画布将由 JavaScript 动态生成 -->
+				<div id="valentines_text"></div>
+				<div id="rewind_text">rewinding...</div>
+				<div id="replay_text">playing back...</div>
+
+			</div>
+		</div>
+		<!--/span-->
+
+	<div id="screen_three">
+		<div class="end-card-container">
+			<div class="end-card">
+				<div class="end-card-main">
+					<h1 class="end-title">Custom Map</h1>
+					<div class="end-subtitle">Create your own levels and<br>challenge your friends.</div>
+					
+					<button id="custom_map_btn_end" class="btn-create-map">CREATE MAP</button>
+				</div>
+
+				<div class="end-divider"></div>
+
+			<div class="end-card-secondary">
+				<div class="end-section">
+					<span class="end-label">给你的朋友写一条消息（可选）：</span>
+					<input type="text" id="your_message" class="end-input" placeholder="(enter lovely message)">
+				</div>
+				
+				<div class="end-section">
+					<span class="end-label">分享包含你的消息和地图的链接：</span>
+					<div class="end-link-wrapper">
+						<div id="your_link" class="end-link-display">http://localhost:8000/</div>
+						<button id="copy_end_link_btn" class="btn-copy-end">📋</button>
+					</div>
+				</div>
+			</div>
+
+				<div class="end-footer">
+					thanks for playing! &lt;3
+				</div>
+			</div>
+		</div>
+	</div>
+		
+	</div>
+</body>
+</html>
+
+<script src="js/Key.js"></script>
+<script src="js/game.js"></script>
+<script src="js/popup.js"></script>
+<script src="js/soundjs-0.6.0.min.js"></script>
+
+<script>
+//STAGE = 4;
+</script>

@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>地图编辑器 - it's a door able</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #2a2a2a; color: #fff; min-height: 100vh; display: flex; }
+    .sidebar { width: 300px; background: #1a1a1a; padding: 20px; overflow-y: auto; height: 100vh; }
+    .sidebar h1 { font-size: 1.2rem; margin-bottom: 20px; color: #e6a817; }
+    .section { margin-bottom: 20px; }
+    .section h3 { font-size: 0.85rem; color: #888; margin-bottom: 8px; text-transform: uppercase; }
+    .char-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
+    .char-btn { padding: 6px; background: #333; border: 2px solid #444; color: #fff; font-size: 0.9rem; cursor: pointer; border-radius: 4px; transition: all 0.2s; }
+    .char-btn:hover { background: #444; border-color: #666; }
+    .char-btn.active { background: #e6a817; border-color: #e6a817; color: #000; }
+    .control-group { margin-bottom: 10px; }
+    .control-group label { display: block; font-size: 0.8rem; color: #aaa; margin-bottom: 4px; }
+    .control-group input[type="number"] { width: 100%; padding: 6px; background: #333; border: 1px solid #444; color: #fff; border-radius: 4px; }
+    .control-row { display: flex; gap: 10px; }
+    .control-row .control-group { flex: 1; }
+    .item-list { max-height: 120px; overflow-y: auto; }
+    .item-row { display: flex; align-items: center; gap: 6px; padding: 6px; background: #333; border-radius: 4px; margin-bottom: 4px; font-size: 0.8rem; }
+    .item-row span { flex: 1; }
+    .item-row input[type="number"] { width: 50px; padding: 3px; background: #222; border: 1px solid #444; color: #fff; border-radius: 3px; font-size: 0.75rem; }
+    .item-row button { padding: 3px 6px; background: #555; border: none; color: #fff; border-radius: 3px; cursor: pointer; font-size: 0.75rem; }
+    .item-row button.delete { background: #c44; }
+    .add-btn { width: 100%; padding: 8px; background: #4a7c4a; border: none; color: #fff; border-radius: 4px; cursor: pointer; margin-top: 8px; font-size: 0.85rem; }
+    .add-btn:hover { background: #5a9c5a; }
+    .add-btn.blue { background: #4a7c9c; }
+    .add-btn.blue:hover { background: #5a9cbc; }
+    .actions { display: flex; flex-direction: column; gap: 8px; }
+    .action-btn { padding: 10px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9rem; transition: all 0.2s; }
+    .action-btn.primary { background: #e6a817; color: #000; }
+    .action-btn.secondary { background: #555; color: #fff; }
+    .action-btn:hover { transform: translateY(-2px); }
+    .editor-main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
+    .canvas-container { position: relative; background: #f5f5f5; box-shadow: 0 10px 50px rgba(0,0,0,0.5); }
+    #editorCanvas { display: block; }
+    .editor-info { margin-top: 15px; color: #888; font-size: 0.85rem; }
+    .editor-info span { margin: 0 12px; }
+    .code-panel { width: 320px; background: #1a1a1a; padding: 20px; overflow-y: auto; height: 100vh; }
+    .code-panel h3 { font-size: 0.85rem; color: #888; margin-bottom: 8px; text-transform: uppercase; }
+    .code-output { background: #0a0a0a; padding: 12px; border-radius: 4px; font-family: 'Consolas', monospace; font-size: 0.7rem; color: #4ec9b0; white-space: pre-wrap; word-break: break-all; max-height: 60vh; overflow-y: auto; }
+    .copy-btn { width: 100%; padding: 8px; background: #555; border: none; color: #fff; border-radius: 4px; cursor: pointer; margin-top: 8px; font-size: 0.85rem; }
+    .copy-btn:hover { background: #666; }
+    .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #4a7c4a; color: #fff; padding: 12px 24px; border-radius: 4px; opacity: 0; transition: opacity 0.3s; z-index: 1000; }
+    .toast.show { opacity: 1; }
+    .help { background: #333; padding: 12px; border-radius: 4px; font-size: 0.8rem; color: #aaa; line-height: 1.5; }
+    .help strong { color: #e6a817; }
+    .test-controls { display: flex; gap: 8px; }
+    .test-controls button { flex: 1; }
+    .test-toggle { background: #4a7c4a !important; color: #fff !important; }
+    .test-toggle.active { background: #c44 !important; }
+    .test-status { margin-top: 8px; padding: 8px; background: #333; border-radius: 4px; font-size: 0.8rem; color: #aaa; }
+    .test-status .collected { color: #e6a817; }
+    .mode-indicator { position: absolute; top: 10px; left: 10px; padding: 6px 12px; background: rgba(74, 124, 74, 0.9); color: #fff; border-radius: 4px; font-size: 0.8rem; display: none; }
+    .mode-indicator.active { display: block; }
+  </style>
+</head>
+<body>
+  <div class="sidebar">
+    <h1>地图编辑器</h1>
+    <div class="section">
+      <h3>选择字符</h3>
+      <div class="char-grid" id="charGrid"></div>
+    </div>
+    <div class="section">
+      <h3>地图尺寸</h3>
+      <div class="control-row">
+        <div class="control-group"><label>宽度</label><input type="number" id="boundsWidth" value="400" min="200" max="800"></div>
+        <div class="control-group"><label>高度</label><input type="number" id="boundsHeight" value="440" min="200" max="800"></div>
+      </div>
+    </div>
+    <div class="section">
+      <h3>检查点 (按顺序经过)</h3>
+      <div class="item-list" id="checkpointList"></div>
+      <button class="add-btn blue" id="addCheckpoint">+ 添加检查点</button>
+    </div>
+    <div class="section">
+      <h3>障碍物</h3>
+      <div class="item-list" id="obstacleList"></div>
+      <button class="add-btn" id="addObstacle">+ 添加障碍物</button>
+    </div>
+    <div class="section">
+      <h3>帮助</h3>
+      <div class="help">
+        <strong>拖拽</strong> 移动物体<br>
+        <strong>Shift+拖拽</strong> 调整障碍物大小<br>
+        <strong>Delete</strong> 删除选中项<br>
+        <strong>空格</strong> 切换测试模式<br>
+        <strong>颜色:</strong> 🔵检查点 🟢起点 🟡钥匙 🟤门
+      </div>
+    </div>
+    <div class="section">
+      <h3>测试模式</h3>
+      <div class="test-controls">
+        <button class="action-btn test-toggle" id="playModeBtn">▶ 测试</button>
+        <button class="action-btn secondary" id="resetBtn" style="display:none;">↺ 重置</button>
+      </div>
+      <div class="test-status" id="testStatus" style="display:none;">
+        <div>检查点: <span id="cpStatusText">0/0</span></div>
+        <div>钥匙: <span id="keyStatusText">未获取</span></div>
+      </div>
+    </div>
+    <div class="section actions">
+      <button class="action-btn primary" id="testBtn">新窗口测试</button>
+      <button class="action-btn secondary" id="saveBtn">保存到库</button>
+    </div>
+  </div>
+  <div class="editor-main">
+    <div class="canvas-container">
+      <canvas id="editorCanvas" width="400" height="440"></canvas>
+      <div class="mode-indicator" id="modeIndicator">测试模式 - 方向键移动</div>
+    </div>
+    <div class="editor-info">
+      <span id="infoChar">当前: H</span>
+      <span id="infoPos">鼠标: (0, 0)</span>
+      <span id="infoSelected">未选中</span>
+    </div>
+  </div>
+  <div class="code-panel">
+    <h3>导出代码</h3>
+    <div class="code-output" id="codeOutput"></div>
+    <button class="copy-btn" id="copyBtn">复制代码</button>
+    <h3 style="margin-top: 15px;">导出所有</h3>
+    <button class="copy-btn" id="exportAllBtn">复制完整 LETTER_MAPS</button>
+  </div>
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // ==================== 字母地图库（统一尺寸 400x420） ====================
+    const LETTER_MAPS = {
+      'A': { obstacles: [{ x: 203, y: 219, radius: 60 },{ x: -106, y: 189, radius: 200 },{ x: 201, y: -142, radius: 200 },{ x: 504, y: 178, radius: 200 },{ x: 206, y: 434, radius: 100 }], player: { x: 60, y: 380 }, checkpoints: [{ x: 206, y: 103 }], key: { x: 126, y: 285 }, door: { x: 340, y: 380 }, bounds: { width: 400, height: 420 } },
+      'B': { obstacles: [{ x: 213, y: 306, radius: 60 },{ x: 206, y: 127, radius: 60 },{ x: 509, y: 194, radius: 200 },{ x: -133, y: 215, radius: 200 }], player: { x: 93, y: 338 }, checkpoints: [{ x: 302, y: 36 },{ x: 108, y: 216 },{ x: 320, y: 383 }], key: { x: 112, y: 209 }, door: { x: 91, y: 41 }, bounds: { width: 400, height: 420 } },
+      'C': { obstacles: [{ x: 200, y: 210, radius: 110 },{ x: 423, y: 207, radius: 100 }], player: { x: 350, y: 50 }, checkpoints: [], key: { x: 52, y: 196 }, door: { x: 350, y: 370 }, bounds: { width: 400, height: 420 } },
+      'D': { obstacles: [{ x: 197, y: 203, radius: 100 },{ x: -38, y: 198, radius: 80 },{ x: 359, y: 382, radius: 80 },{ x: 200, y: 210, radius: 80 },{ x: 361, y: 27, radius: 80 }], player: { x: 68, y: 348 }, checkpoints: [{ x: 221, y: 50 }], key: { x: 346, y: 193 }, door: { x: 87, y: 360 }, bounds: { width: 400, height: 420 } },
+      'E': { obstacles: [{ x: -12, y: 67, radius: 80 },{ x: 12, y: 399, radius: 80 },{ x: 200, y: 134, radius: 45 },{ x: 196, y: 284, radius: 45 },{ x: 374, y: 133, radius: 60 },{ x: 280, y: 124, radius: 50 },{ x: 164, y: 92, radius: 40 }], player: { x: 349, y: 362 }, checkpoints: [{ x: 121, y: 370 },{ x: 105, y: 44 },{ x: 302, y: 44 }], key: { x: 187, y: 202 }, door: { x: 280, y: 210 }, bounds: { width: 400, height: 420 } },
+      'F': { obstacles: [{ x: -11, y: 227, radius: 80 },{ x: 410, y: 202, radius: 80 },{ x: 195, y: 151, radius: 45 },{ x: 200, y: -83, radius: 120 },{ x: 212, y: 341, radius: 80 },{ x: 290, y: 149, radius: 40 }], player: { x: 92, y: 378 }, checkpoints: [{ x: 85, y: 65 }], key: { x: 300, y: 69 }, door: { x: 295, y: 230 }, bounds: { width: 400, height: 420 } },
+      'G': { obstacles: [{ x: 154, y: 209, radius: 80 },{ x: 168, y: -19, radius: 80 },{ x: 183, y: 450, radius: 80 }], player: { x: 339, y: 77 }, checkpoints: [{ x: 31, y: 205 },{ x: 350, y: 328 }], key: { x: 277, y: 200 }, door: { x: 270, y: 279 }, bounds: { width: 400, height: 420 } },
+      'H': { obstacles: [{ x: 200, y: 70, radius: 100 },{ x: 200, y: 350, radius: 100 }], player: { x: 50, y: 380 }, checkpoints: [{ x: 50, y: 50 },{ x: 350, y: 50 }], key: { x: 350, y: 210 }, door: { x: 350, y: 380 }, bounds: { width: 400, height: 420 } },
+      'I': { obstacles: [{ x: -60, y: 210, radius: 190 },{ x: 460, y: 210, radius: 190 }], player: { x: 200, y: 380 }, checkpoints: [], key: { x: 203, y: 212 }, door: { x: 200, y: 50 }, bounds: { width: 400, height: 420 } },
+      'J': { obstacles: [{ x: 93, y: 476, radius: 120 },{ x: 347, y: 520, radius: 160 },{ x: 216, y: 314, radius: 30 },{ x: 48, y: 103, radius: 120 },{ x: 411, y: 205, radius: 80 }], player: { x: 285, y: 50 }, checkpoints: [], key: { x: 288, y: 343 }, door: { x: 149, y: 287 }, bounds: { width: 400, height: 420 } },
+      'K': { obstacles: [{ x: 306, y: 216, radius: 90 },{ x: 134, y: 123, radius: 55 },{ x: 139, y: 307, radius: 55 },{ x: -78, y: 212, radius: 120 }], player: { x: 62, y: 380 }, checkpoints: [{ x: 52, y: 50 },{ x: 104, y: 216 }], key: { x: 334, y: 48 }, door: { x: 350, y: 380 }, bounds: { width: 400, height: 420 } },
+      'L': { obstacles: [{ x: 300, y: -4, radius: 160 },{ x: -70, y: 199, radius: 110 },{ x: 159, y: 206, radius: 70 }], player: { x: 60, y: 50 }, checkpoints: [{ x: 60, y: 354 }], key: { x: 203, y: 350 }, door: { x: 341, y: 359 }, bounds: { width: 400, height: 420 } },
+      'M': { obstacles: [{ x: -77, y: 213, radius: 110 },{ x: 133, y: 208, radius: 40 },{ x: 270, y: 207, radius: 40 },{ x: 203, y: 44, radius: 80 },{ x: 202, y: 379, radius: 80 },{ x: 476, y: 207, radius: 110 }], player: { x: 64, y: 367 }, checkpoints: [{ x: 52, y: 46 },{ x: 202, y: 244 }], key: { x: 347, y: 49 }, door: { x: 343, y: 373 }, bounds: { width: 400, height: 420 } },
+      'N': { obstacles: [{ x: 200, y: 90, radius: 80 },{ x: 200, y: 330, radius: 80 },{ x: -32, y: 187, radius: 80 },{ x: 433, y: 187, radius: 80 }], player: { x: 64, y: 380 }, checkpoints: [{ x: 50, y: 50 }], key: { x: 335, y: 378 }, door: { x: 339, y: 47 }, bounds: { width: 400, height: 420 } },
+      'O': { obstacles: [{ x: 200, y: 210, radius: 100 }], player: { x: 200, y: 390 }, checkpoints: [{ x: 360, y: 210 },{ x: 200, y: 40 }], key: { x: 40, y: 210 }, door: { x: 200, y: 390 }, bounds: { width: 400, height: 420 } },
+      'P': { obstacles: [{ x: 300, y: 110, radius: 80 },{ x: 400, y: 320, radius: 140 },{ x: 180, y: 110, radius: 40 }], player: { x: 60, y: 380 }, checkpoints: [{ x: 60, y: 50 }], key: { x: 200, y: 110 }, door: { x: 60, y: 200 }, bounds: { width: 400, height: 420 } },
+      'Q': { obstacles: [{ x: 200, y: 190, radius: 100 }], player: { x: 200, y: 370 }, checkpoints: [{ x: 40, y: 190 },{ x: 200, y: 40 },{ x: 360, y: 190 }], key: { x: 270, y: 330 }, door: { x: 360, y: 390 }, bounds: { width: 400, height: 420 } },
+      'R': { obstacles: [{ x: 300, y: 100, radius: 70 },{ x: 420, y: 320, radius: 120 },{ x: 180, y: 100, radius: 40 }], player: { x: 60, y: 380 }, checkpoints: [{ x: 60, y: 50 },{ x: 200, y: 100 }], key: { x: 60, y: 200 }, door: { x: 300, y: 380 }, bounds: { width: 400, height: 420 } },
+      'S': { obstacles: [{ x: -20, y: 90, radius: 100 },{ x: 420, y: 330, radius: 100 },{ x: 200, y: 210, radius: 45 }], player: { x: 340, y: 50 }, checkpoints: [{ x: 100, y: 50 },{ x: 200, y: 210 }], key: { x: 300, y: 380 }, door: { x: 60, y: 380 }, bounds: { width: 400, height: 420 } },
+      'T': { obstacles: [{ x: -80, y: 270, radius: 200 },{ x: 480, y: 270, radius: 200 },{ x: 110, y: 50, radius: 45 },{ x: 290, y: 50, radius: 45 }], player: { x: 60, y: 50 }, checkpoints: [{ x: 340, y: 50 }], key: { x: 200, y: 50 }, door: { x: 200, y: 380 }, bounds: { width: 400, height: 420 } },
+      'U': { obstacles: [{ x: 200, y: 130, radius: 110 }], player: { x: 50, y: 50 }, checkpoints: [{ x: 200, y: 380 }], key: { x: 350, y: 220 }, door: { x: 350, y: 50 }, bounds: { width: 400, height: 420 } },
+      'V': { obstacles: [{ x: 90, y: 340, radius: 130 },{ x: 310, y: 340, radius: 130 }], player: { x: 50, y: 50 }, checkpoints: [{ x: 200, y: 380 }], key: { x: 290, y: 170 }, door: { x: 350, y: 50 }, bounds: { width: 400, height: 420 } },
+      'W': { obstacles: [{ x: 130, y: 190, radius: 90 },{ x: 270, y: 190, radius: 90 }], player: { x: 50, y: 50 }, checkpoints: [{ x: 50, y: 380 },{ x: 200, y: 130 },{ x: 350, y: 380 }], key: { x: 350, y: 190 }, door: { x: 350, y: 50 }, bounds: { width: 400, height: 420 } },
+      'X': { obstacles: [{ x: 100, y: 210, radius: 80 },{ x: 300, y: 210, radius: 80 }], player: { x: 50, y: 50 }, checkpoints: [{ x: 200, y: 210 },{ x: 350, y: 380 }], key: { x: 200, y: 210 }, door: { x: 50, y: 380 }, bounds: { width: 400, height: 420 } },
+      'Y': { obstacles: [{ x: 90, y: 300, radius: 130 },{ x: 310, y: 300, radius: 130 }], player: { x: 50, y: 50 }, checkpoints: [{ x: 200, y: 190 },{ x: 350, y: 50 }], key: { x: 200, y: 190 }, door: { x: 200, y: 390 }, bounds: { width: 400, height: 420 } },
+      'Z': { obstacles: [{ x: 90, y: 210, radius: 100 },{ x: 310, y: 210, radius: 100 }], player: { x: 50, y: 50 }, checkpoints: [{ x: 350, y: 50 }], key: { x: 50, y: 380 }, door: { x: 350, y: 380 }, bounds: { width: 400, height: 420 } },
+      '0': { obstacles: [{ x: 200, y: 210, radius: 100 }], player: { x: 200, y: 390 }, checkpoints: [{ x: 360, y: 210 },{ x: 200, y: 40 }], key: { x: 40, y: 210 }, door: { x: 200, y: 390 }, bounds: { width: 400, height: 420 } },
+      '1': { obstacles: [{ x: -60, y: 210, radius: 190 },{ x: 460, y: 210, radius: 190 }], player: { x: 200, y: 390 }, checkpoints: [{ x: 200, y: 210 }], key: { x: 200, y: 120 }, door: { x: 200, y: 40 }, bounds: { width: 400, height: 420 } },
+      '2': { obstacles: [{ x: -20, y: 70, radius: 100 },{ x: 450, y: 300, radius: 140 },{ x: 120, y: 210, radius: 70 }], player: { x: 120, y: 50 }, checkpoints: [{ x: 340, y: 50 }], key: { x: 50, y: 380 }, door: { x: 340, y: 380 }, bounds: { width: 400, height: 420 } },
+      '3': { obstacles: [{ x: -30, y: 100, radius: 110 },{ x: -30, y: 320, radius: 110 }], player: { x: 160, y: 50 }, checkpoints: [{ x: 320, y: 100 },{ x: 320, y: 210 }], key: { x: 320, y: 340 }, door: { x: 160, y: 380 }, bounds: { width: 400, height: 420 } },
+      '4': { obstacles: [{ x: 220, y: -30, radius: 110 },{ x: -30, y: 280, radius: 130 },{ x: 220, y: 450, radius: 110 }], player: { x: 60, y: 110 }, checkpoints: [{ x: 120, y: 200 },{ x: 320, y: 200 }], key: { x: 320, y: 110 }, door: { x: 320, y: 370 }, bounds: { width: 400, height: 420 } },
+      '5': { obstacles: [{ x: 430, y: 70, radius: 110 },{ x: -30, y: 320, radius: 130 },{ x: 200, y: 130, radius: 55 }], player: { x: 300, y: 50 }, checkpoints: [{ x: 60, y: 50 },{ x: 60, y: 180 }], key: { x: 300, y: 340 }, door: { x: 120, y: 380 }, bounds: { width: 400, height: 420 } },
+      '6': { obstacles: [{ x: 220, y: 300, radius: 80 },{ x: 430, y: 140, radius: 130 },{ x: 150, y: 210, radius: 50 }], player: { x: 300, y: 50 }, checkpoints: [{ x: 80, y: 50 },{ x: 80, y: 340 }], key: { x: 300, y: 340 }, door: { x: 80, y: 230 }, bounds: { width: 400, height: 420 } },
+      '7': { obstacles: [{ x: -100, y: 300, radius: 220 }], player: { x: 50, y: 50 }, checkpoints: [{ x: 340, y: 50 }], key: { x: 220, y: 210 }, door: { x: 160, y: 380 }, bounds: { width: 400, height: 420 } },
+      '8': { obstacles: [{ x: 200, y: 110, radius: 70 },{ x: 200, y: 310, radius: 70 }], player: { x: 200, y: 210 }, checkpoints: [{ x: 330, y: 110 },{ x: 70, y: 110 },{ x: 70, y: 310 }], key: { x: 330, y: 310 }, door: { x: 200, y: 210 }, bounds: { width: 400, height: 420 } },
+      '9': { obstacles: [{ x: 200, y: 120, radius: 80 },{ x: -30, y: 310, radius: 130 }], player: { x: 330, y: 190 }, checkpoints: [{ x: 330, y: 60 },{ x: 70, y: 120 }], key: { x: 200, y: 60 }, door: { x: 200, y: 390 }, bounds: { width: 400, height: 420 } },
+    };
+
+    // ==================== 编辑器状态 ====================
+    let currentChar = 'H';
+    let currentMap = null;
+    let selectedItem = null;
+    let isDragging = false;
+    let isResizing = false;
+    let dragOffset = { x: 0, y: 0 };
+
+    // 测试模式
+    let isPlayMode = false;
+    let testPlayer = { x: 0, y: 0 };
+    let testHasKey = false;
+    let testCurrentCP = 0;
+    let testPath = [];
+    let moveKeys = { up: false, down: false, left: false, right: false };
+    const PLAYER_SPEED = 1.5;
+    const PLAYER_RADIUS = 15;
+    const CHECKPOINT_RADIUS = 20;
+
+    const canvas = document.getElementById('editorCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // ==================== 初始化 ====================
+    function init() {
+      const charGrid = document.getElementById('charGrid');
+      'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'.split('').forEach(char => {
+        const btn = document.createElement('button');
+        btn.className = 'char-btn' + (char === currentChar ? ' active' : '');
+        btn.textContent = char;
+        btn.onclick = () => selectChar(char);
+        charGrid.appendChild(btn);
+      });
+
+      loadChar(currentChar);
+
+      document.getElementById('boundsWidth').onchange = updateBounds;
+      document.getElementById('boundsHeight').onchange = updateBounds;
+      document.getElementById('addObstacle').onclick = addObstacle;
+      document.getElementById('addCheckpoint').onclick = addCheckpoint;
+      document.getElementById('testBtn').onclick = testMap;
+      document.getElementById('saveBtn').onclick = saveToLibrary;
+      document.getElementById('copyBtn').onclick = copyCode;
+      document.getElementById('exportAllBtn').onclick = exportAll;
+      document.getElementById('playModeBtn').onclick = togglePlayMode;
+      document.getElementById('resetBtn').onclick = resetTestPlayer;
+
+      canvas.addEventListener('mousedown', onMouseDown);
+      canvas.addEventListener('mousemove', onMouseMove);
+      canvas.addEventListener('mouseup', onMouseUp);
+      canvas.addEventListener('mouseleave', onMouseUp);
+      document.addEventListener('keydown', onKeyDown);
+      document.addEventListener('keyup', onKeyUp);
+
+      render();
+      requestAnimationFrame(gameLoop);
+    }
+
+    function selectChar(char) {
+      document.querySelectorAll('.char-btn').forEach(btn => btn.classList.toggle('active', btn.textContent === char));
+      currentChar = char;
+      loadChar(char);
+    }
+
+    function loadChar(char) {
+      const template = LETTER_MAPS[char];
+      if (template) {
+        currentMap = JSON.parse(JSON.stringify(template));
+      } else {
+        currentMap = { obstacles: [], player: { x: 60, y: 380 }, checkpoints: [], key: { x: 200, y: 200 }, door: { x: 340, y: 50 }, bounds: { width: 400, height: 440 } };
+      }
+      if (!currentMap.checkpoints) currentMap.checkpoints = [];
+
+      // 清除测试状态
+      testPath = [];
+      testHasKey = false;
+      testCurrentCP = 0;
+
+      document.getElementById('boundsWidth').value = currentMap.bounds.width;
+      document.getElementById('boundsHeight').value = currentMap.bounds.height;
+      canvas.width = currentMap.bounds.width;
+      canvas.height = currentMap.bounds.height;
+
+      updateLists();
+      updateCodeOutput();
+      render();
+      document.getElementById('infoChar').textContent = `当前: ${char}`;
+    }
+
+    function updateBounds() {
+      currentMap.bounds.width = parseInt(document.getElementById('boundsWidth').value);
+      currentMap.bounds.height = parseInt(document.getElementById('boundsHeight').value);
+      canvas.width = currentMap.bounds.width;
+      canvas.height = currentMap.bounds.height;
+      updateCodeOutput();
+      render();
+    }
+
+    function updateLists() {
+      // 障碍物列表
+      const obsList = document.getElementById('obstacleList');
+      obsList.innerHTML = '';
+      currentMap.obstacles.forEach((obs, i) => {
+        const item = document.createElement('div');
+        item.className = 'item-row';
+        item.innerHTML = `<span>圆${i+1}: (${Math.round(obs.x)},${Math.round(obs.y)})</span><input type="number" value="${Math.round(obs.radius)}" min="10" max="500" onchange="updateObstacleRadius(${i}, this.value)" title="半径"><button class="delete" onclick="deleteObstacle(${i})">×</button>`;
+        obsList.appendChild(item);
+      });
+
+      // 检查点列表
+      const cpList = document.getElementById('checkpointList');
+      cpList.innerHTML = '';
+      currentMap.checkpoints.forEach((cp, i) => {
+        const item = document.createElement('div');
+        item.className = 'item-row';
+        item.innerHTML = `<span>${i+1}: (${Math.round(cp.x)},${Math.round(cp.y)})</span><button class="delete" onclick="deleteCheckpoint(${i})">×</button>`;
+        cpList.appendChild(item);
+      });
+    }
+
+    function addObstacle() {
+      currentMap.obstacles.push({ x: currentMap.bounds.width / 2, y: currentMap.bounds.height / 2, radius: 80 });
+      updateLists(); updateCodeOutput(); render();
+    }
+
+    function addCheckpoint() {
+      currentMap.checkpoints.push({ x: currentMap.bounds.width / 2, y: currentMap.bounds.height / 2 });
+      updateLists(); updateCodeOutput(); render();
+    }
+
+    window.deleteObstacle = function(i) { currentMap.obstacles.splice(i, 1); updateLists(); updateCodeOutput(); render(); };
+    window.deleteCheckpoint = function(i) { currentMap.checkpoints.splice(i, 1); updateLists(); updateCodeOutput(); render(); };
+    window.updateObstacleRadius = function(i, value) { 
+      currentMap.obstacles[i].radius = Math.max(10, parseInt(value) || 80); 
+      updateCodeOutput(); 
+      render(); 
+    };
+
+    // ==================== 测试模式 ====================
+    function togglePlayMode() {
+      isPlayMode = !isPlayMode;
+      const btn = document.getElementById('playModeBtn');
+      const resetBtn = document.getElementById('resetBtn');
+      const testStatus = document.getElementById('testStatus');
+      const modeIndicator = document.getElementById('modeIndicator');
+      
+      if (isPlayMode) {
+        btn.textContent = '■ 停止';
+        btn.classList.add('active');
+        resetBtn.style.display = 'block';
+        testStatus.style.display = 'block';
+        modeIndicator.classList.add('active');
+        resetTestPlayer();
+      } else {
+        btn.textContent = '▶ 测试';
+        btn.classList.remove('active');
+        resetBtn.style.display = 'none';
+        testStatus.style.display = 'none';
+        modeIndicator.classList.remove('active');
+        testPath = [];
+        render();
+      }
+    }
+
+    function resetTestPlayer() {
+      testPlayer = { x: currentMap.player.x, y: currentMap.player.y };
+      testHasKey = false;
+      testCurrentCP = 0;
+      testPath = [{ x: testPlayer.x, y: testPlayer.y }];
+      updateTestStatus();
+      render();
+    }
+
+    function updateTestStatus() {
+      document.getElementById('cpStatusText').textContent = `${testCurrentCP}/${currentMap.checkpoints.length}`;
+      document.getElementById('keyStatusText').textContent = testHasKey ? '已获取 ✓' : '未获取';
+      document.getElementById('keyStatusText').classList.toggle('collected', testHasKey);
+    }
+
+    function gameLoop() {
+      if (isPlayMode) updateTestPlayer();
+      requestAnimationFrame(gameLoop);
+    }
+
+    function updateTestPlayer() {
+      let newX = testPlayer.x, newY = testPlayer.y;
+      if (moveKeys.up) newY -= PLAYER_SPEED;
+      if (moveKeys.down) newY += PLAYER_SPEED;
+      if (moveKeys.left) newX -= PLAYER_SPEED;
+      if (moveKeys.right) newX += PLAYER_SPEED;
+
+      // 边界限制
+      newX = Math.max(PLAYER_RADIUS, Math.min(currentMap.bounds.width - PLAYER_RADIUS, newX));
+      newY = Math.max(PLAYER_RADIUS, Math.min(currentMap.bounds.height - PLAYER_RADIUS, newY));
+
+      // 滑动碰撞处理 - 多次迭代解决多障碍物碰撞
+      for (let iter = 0; iter < 3; iter++) {
+        for (const obs of currentMap.obstacles) {
+          const dx = newX - obs.x;
+          const dy = newY - obs.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const minDist = obs.radius + PLAYER_RADIUS;
+          
+          if (dist < minDist && dist > 0) {
+            // 计算推出向量，将玩家推到障碍物表面外
+            const pushX = (dx / dist) * (minDist - dist + 0.5);
+            const pushY = (dy / dist) * (minDist - dist + 0.5);
+            newX += pushX;
+            newY += pushY;
+          }
+        }
+      }
+
+      // 再次边界限制
+      newX = Math.max(PLAYER_RADIUS, Math.min(currentMap.bounds.width - PLAYER_RADIUS, newX));
+      newY = Math.max(PLAYER_RADIUS, Math.min(currentMap.bounds.height - PLAYER_RADIUS, newY));
+
+      // 最终碰撞检查 - 如果仍然碰撞则不移动
+      let canMove = true;
+      for (const obs of currentMap.obstacles) {
+        if (Math.sqrt((newX - obs.x) ** 2 + (newY - obs.y) ** 2) < obs.radius + PLAYER_RADIUS - 1) {
+          canMove = false; break;
+        }
+      }
+
+      if (canMove && (newX !== testPlayer.x || newY !== testPlayer.y)) {
+        testPlayer.x = newX;
+        testPlayer.y = newY;
+        testPath.push({ x: newX, y: newY });
+        render();
+      }
+
+      // 检查点检测
+      if (testCurrentCP < currentMap.checkpoints.length) {
+        const cp = currentMap.checkpoints[testCurrentCP];
+        if (Math.sqrt((testPlayer.x - cp.x) ** 2 + (testPlayer.y - cp.y) ** 2) < PLAYER_RADIUS + CHECKPOINT_RADIUS) {
+          // 将轨迹延长到检查点中心
+          testPath.push({ x: cp.x, y: cp.y });
+          testCurrentCP++;
+          updateTestStatus();
+          render();
+        }
+      } else if (!testHasKey) {
+        // 钥匙检测
+        if (Math.sqrt((testPlayer.x - currentMap.key.x) ** 2 + (testPlayer.y - currentMap.key.y) ** 2) < PLAYER_RADIUS + 18) {
+          // 将轨迹延长到钥匙中心
+          testPath.push({ x: currentMap.key.x, y: currentMap.key.y });
+          testHasKey = true;
+          updateTestStatus();
+          render();
+        }
+      } else {
+        // 门检测
+        if (Math.sqrt((testPlayer.x - currentMap.door.x) ** 2 + (testPlayer.y - currentMap.door.y) ** 2) < PLAYER_RADIUS + 25) {
+          // 将轨迹延长到门中心
+          testPath.push({ x: currentMap.door.x, y: currentMap.door.y });
+          showToast('过关！轨迹已显示');
+        }
+      }
+    }
+
+    // ==================== 画布交互 ====================
+    function getMousePos(e) {
+      const rect = canvas.getBoundingClientRect();
+      return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    }
+
+    function findItemAt(pos) {
+      // 玩家
+      if (Math.sqrt((pos.x - currentMap.player.x) ** 2 + (pos.y - currentMap.player.y) ** 2) < 20)
+        return { type: 'player', item: currentMap.player };
+      // 检查点
+      for (let i = 0; i < currentMap.checkpoints.length; i++) {
+        const cp = currentMap.checkpoints[i];
+        if (Math.sqrt((pos.x - cp.x) ** 2 + (pos.y - cp.y) ** 2) < CHECKPOINT_RADIUS)
+          return { type: 'checkpoint', item: cp, index: i };
+      }
+      // 钥匙
+      if (Math.sqrt((pos.x - currentMap.key.x) ** 2 + (pos.y - currentMap.key.y) ** 2) < 20)
+        return { type: 'key', item: currentMap.key };
+      // 门
+      if (Math.sqrt((pos.x - currentMap.door.x) ** 2 + (pos.y - currentMap.door.y) ** 2) < 30)
+        return { type: 'door', item: currentMap.door };
+      // 障碍物
+      for (let i = currentMap.obstacles.length - 1; i >= 0; i--) {
+        const obs = currentMap.obstacles[i];
+        if (Math.sqrt((pos.x - obs.x) ** 2 + (pos.y - obs.y) ** 2) < obs.radius)
+          return { type: 'obstacle', item: obs, index: i };
+      }
+      return null;
+    }
+
+    function onMouseDown(e) {
+      if (isPlayMode) return;
+      const pos = getMousePos(e);
+      const found = findItemAt(pos);
+      if (found) {
+        selectedItem = found;
+        isDragging = true;
+        isResizing = e.shiftKey && found.type === 'obstacle';
+        dragOffset = { x: pos.x - found.item.x, y: pos.y - found.item.y };
+        render();
+      } else {
+        selectedItem = null;
+        render();
+      }
+      updateInfoSelected();
+    }
+
+    function onMouseMove(e) {
+      const pos = getMousePos(e);
+      document.getElementById('infoPos').textContent = `鼠标: (${Math.round(pos.x)}, ${Math.round(pos.y)})`;
+      if (isDragging && selectedItem) {
+        if (isResizing && selectedItem.type === 'obstacle') {
+          selectedItem.item.radius = Math.max(20, Math.sqrt((pos.x - selectedItem.item.x) ** 2 + (pos.y - selectedItem.item.y) ** 2));
+        } else {
+          selectedItem.item.x = pos.x - dragOffset.x;
+          selectedItem.item.y = pos.y - dragOffset.y;
+        }
+        updateLists(); updateCodeOutput(); render();
+      }
+    }
+
+    function onMouseUp() { isDragging = false; isResizing = false; }
+
+    function onKeyDown(e) {
+      if (isPlayMode) {
+        switch(e.key) {
+          case 'ArrowUp': case 'w': case 'W': moveKeys.up = true; e.preventDefault(); break;
+          case 'ArrowDown': case 's': case 'S': moveKeys.down = true; e.preventDefault(); break;
+          case 'ArrowLeft': case 'a': case 'A': moveKeys.left = true; e.preventDefault(); break;
+          case 'ArrowRight': case 'd': case 'D': moveKeys.right = true; e.preventDefault(); break;
+          case 'Escape': togglePlayMode(); break;
+        }
+        return;
+      }
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedItem) {
+        if (selectedItem.type === 'obstacle') { currentMap.obstacles.splice(selectedItem.index, 1); }
+        else if (selectedItem.type === 'checkpoint') { currentMap.checkpoints.splice(selectedItem.index, 1); }
+        selectedItem = null;
+        updateLists(); updateCodeOutput(); render();
+      }
+      if (e.key === ' ') { togglePlayMode(); e.preventDefault(); }
+    }
+
+    function onKeyUp(e) {
+      switch(e.key) {
+        case 'ArrowUp': case 'w': case 'W': moveKeys.up = false; break;
+        case 'ArrowDown': case 's': case 'S': moveKeys.down = false; break;
+        case 'ArrowLeft': case 'a': case 'A': moveKeys.left = false; break;
+        case 'ArrowRight': case 'd': case 'D': moveKeys.right = false; break;
+      }
+    }
+
+    function updateInfoSelected() {
+      const info = document.getElementById('infoSelected');
+      if (selectedItem) {
+        const names = { player: '起点', key: '钥匙', door: '门', obstacle: '障碍物', checkpoint: '检查点' };
+        info.textContent = `选中: ${names[selectedItem.type]}${selectedItem.index !== undefined ? (selectedItem.index + 1) : ''}`;
+      } else {
+        info.textContent = '未选中';
+      }
+    }
+
+    // ==================== 渲染 ====================
+    function render() {
+      ctx.fillStyle = '#f5f5f5';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // 障碍物
+      currentMap.obstacles.forEach((obs, i) => {
+        const sel = selectedItem && selectedItem.type === 'obstacle' && selectedItem.index === i;
+        ctx.fillStyle = sel ? '#2a2a2a' : '#3d3d3d';
+        ctx.beginPath();
+        ctx.arc(obs.x, obs.y, obs.radius, 0, Math.PI * 2);
+        ctx.fill();
+        if (sel) { ctx.strokeStyle = '#e6a817'; ctx.lineWidth = 3; ctx.stroke(); }
+        if (!isPlayMode) { ctx.fillStyle = '#666'; ctx.beginPath(); ctx.arc(obs.x, obs.y, 4, 0, Math.PI * 2); ctx.fill(); }
+      });
+
+      // 测试模式路径（平滑曲线）
+      if (isPlayMode && testPath.length > 1) {
+        // 采样路径点，减少噪点
+        const sampledPath = [testPath[0]];
+        const MIN_DIST = 12;
+        for (let i = 1; i < testPath.length; i++) {
+          const last = sampledPath[sampledPath.length - 1];
+          const dist = Math.sqrt((testPath[i].x - last.x) ** 2 + (testPath[i].y - last.y) ** 2);
+          if (dist >= MIN_DIST) sampledPath.push(testPath[i]);
+        }
+        if (sampledPath.length > 1 && sampledPath[sampledPath.length - 1] !== testPath[testPath.length - 1]) {
+          sampledPath.push(testPath[testPath.length - 1]);
+        }
+
+        // 画平滑曲线
+        ctx.strokeStyle = 'rgba(74, 124, 74, 0.7)';
+        ctx.lineWidth = 6;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo(sampledPath[0].x, sampledPath[0].y);
+        
+        if (sampledPath.length === 2) {
+          ctx.lineTo(sampledPath[1].x, sampledPath[1].y);
+        } else {
+          for (let i = 1; i < sampledPath.length - 1; i++) {
+            const xc = (sampledPath[i].x + sampledPath[i + 1].x) / 2;
+            const yc = (sampledPath[i].y + sampledPath[i + 1].y) / 2;
+            ctx.quadraticCurveTo(sampledPath[i].x, sampledPath[i].y, xc, yc);
+          }
+          const last = sampledPath[sampledPath.length - 1];
+          ctx.lineTo(last.x, last.y);
+        }
+        ctx.stroke();
+      }
+
+      // 检查点（编辑模式显示全部，测试模式显示当前）
+      if (isPlayMode) {
+        if (testCurrentCP < currentMap.checkpoints.length) {
+          drawCheckpoint(currentMap.checkpoints[testCurrentCP].x, currentMap.checkpoints[testCurrentCP].y, testCurrentCP + 1);
+        }
+      } else {
+        currentMap.checkpoints.forEach((cp, i) => {
+          const sel = selectedItem && selectedItem.type === 'checkpoint' && selectedItem.index === i;
+          drawCheckpoint(cp.x, cp.y, i + 1, sel);
+        });
+      }
+
+      // 钥匙
+      if (!(isPlayMode && testHasKey) && (isPlayMode ? testCurrentCP >= currentMap.checkpoints.length : true)) {
+        if (!isPlayMode || testCurrentCP >= currentMap.checkpoints.length) {
+          drawKey(currentMap.key.x, currentMap.key.y, selectedItem?.type === 'key');
+        }
+      }
+
+      // 门
+      const showDoor = isPlayMode ? testHasKey : true;
+      if (showDoor) drawDoor(currentMap.door.x, currentMap.door.y, selectedItem?.type === 'door', isPlayMode && testHasKey);
+
+      // 玩家
+      if (isPlayMode) {
+        drawTestPlayer(testPlayer.x, testPlayer.y);
+        drawStartMarker(currentMap.player.x, currentMap.player.y);
+      } else {
+        drawPlayer(currentMap.player.x, currentMap.player.y, selectedItem?.type === 'player');
+      }
+    }
+
+    function drawCheckpoint(x, y, num, selected = false) {
+      ctx.fillStyle = selected ? 'rgba(100, 200, 255, 0.5)' : 'rgba(100, 200, 255, 0.3)';
+      ctx.beginPath();
+      ctx.arc(x, y, CHECKPOINT_RADIUS + 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = selected ? '#50b0ff' : '#64c8ff';
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(x, y, CHECKPOINT_RADIUS, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 14px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(num.toString(), x, y);
+    }
+
+    function drawTestPlayer(x, y) {
+      ctx.strokeStyle = '#2a8a2a';
+      ctx.lineWidth = 3;
+      ctx.fillStyle = '#90EE90';
+      ctx.beginPath(); ctx.arc(x, y - 18, 12, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x, y - 6); ctx.lineTo(x, y + 15); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x - 12, y + 2); ctx.lineTo(x + 12, y + 2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x, y + 15); ctx.lineTo(x - 10, y + 30); ctx.moveTo(x, y + 15); ctx.lineTo(x + 10, y + 30); ctx.stroke();
+    }
+
+    function drawStartMarker(x, y) {
+      ctx.fillStyle = 'rgba(74, 124, 74, 0.3)';
+      ctx.beginPath(); ctx.arc(x, y, 20, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#4a7c4a';
+      ctx.font = '10px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('起点', x, y + 35);
+    }
+
+    function drawPlayer(x, y, selected) {
+      ctx.strokeStyle = selected ? '#4a7c4a' : '#3d3d3d';
+      ctx.lineWidth = 3;
+      ctx.fillStyle = selected ? '#90EE90' : '#fff';
+      ctx.beginPath(); ctx.arc(x, y - 18, 12, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x, y - 6); ctx.lineTo(x, y + 15); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x - 12, y + 2); ctx.lineTo(x + 12, y + 2); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x, y + 15); ctx.lineTo(x - 10, y + 30); ctx.moveTo(x, y + 15); ctx.lineTo(x + 10, y + 30); ctx.stroke();
+      ctx.fillStyle = '#4a7c4a'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('起点', x, y + 45);
+    }
+
+    function drawKey(x, y, selected) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.strokeStyle = selected ? '#FFD700' : '#e6a817';
+      ctx.lineWidth = selected ? 6 : 5;
+      ctx.beginPath(); ctx.arc(-15, 0, 12, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = selected ? '#FFD700' : '#e6a817';
+      ctx.fillRect(-3, -3, 25, 6);
+      ctx.fillRect(18, -3, 5, 12);
+      ctx.fillRect(10, -3, 5, 9);
+      ctx.fillStyle = '#e6a817'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('钥匙', 0, 30);
+      ctx.restore();
+    }
+
+    function drawDoor(x, y, selected, isOpen = false) {
+      ctx.save();
+      ctx.translate(x, y);
+      const w = 35, h = 55;
+      ctx.fillStyle = isOpen ? '#4a7c4a' : (selected ? '#6a5c5a' : '#5a5a5a');
+      ctx.strokeStyle = selected ? '#e6a817' : 'transparent';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(-w/2, -h/2); ctx.lineTo(w/2, -h/2); ctx.lineTo(w/2 + 5, h/2); ctx.lineTo(-w/2 - 5, h/2);
+      ctx.closePath(); ctx.fill();
+      if (selected) ctx.stroke();
+      ctx.fillStyle = '#3d3d3d';
+      ctx.beginPath(); ctx.arc(0, 5, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.fillRect(-3, 5, 6, 12);
+      ctx.fillStyle = isOpen ? '#4a7c4a' : '#5a5a5a';
+      ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText(isOpen ? '门 ✓' : '门', 0, h/2 + 15);
+      ctx.restore();
+    }
+
+    // ==================== 代码输出 ====================
+    function updateCodeOutput() {
+      const code = `'${currentChar}': {
+  obstacles: [
+${currentMap.obstacles.map(o => `    { x: ${Math.round(o.x)}, y: ${Math.round(o.y)}, radius: ${Math.round(o.radius)} },`).join('\n')}
+  ],
+  player: { x: ${Math.round(currentMap.player.x)}, y: ${Math.round(currentMap.player.y)} },
+  checkpoints: [
+${currentMap.checkpoints.map(c => `    { x: ${Math.round(c.x)}, y: ${Math.round(c.y)} },`).join('\n')}
+  ],
+  key: { x: ${Math.round(currentMap.key.x)}, y: ${Math.round(currentMap.key.y)} },
+  door: { x: ${Math.round(currentMap.door.x)}, y: ${Math.round(currentMap.door.y)} },
+  bounds: { width: ${currentMap.bounds.width}, height: ${currentMap.bounds.height} }
+},`;
+      document.getElementById('codeOutput').textContent = code;
+    }
+
+    function copyCode() {
+      navigator.clipboard.writeText(document.getElementById('codeOutput').textContent);
+      showToast('代码已复制');
+    }
+
+    function exportAll() {
+      LETTER_MAPS[currentChar] = JSON.parse(JSON.stringify(currentMap));
+      let code = 'const LETTER_MAPS = {\n';
+      for (const [char, map] of Object.entries(LETTER_MAPS)) {
+        code += `  '${char}': { obstacles: [${map.obstacles.map(o => `{ x: ${Math.round(o.x)}, y: ${Math.round(o.y)}, radius: ${Math.round(o.radius)} }`).join(',')}], player: { x: ${Math.round(map.player.x)}, y: ${Math.round(map.player.y)} }, checkpoints: [${(map.checkpoints||[]).map(c => `{ x: ${Math.round(c.x)}, y: ${Math.round(c.y)} }`).join(',')}], key: { x: ${Math.round(map.key.x)}, y: ${Math.round(map.key.y)} }, door: { x: ${Math.round(map.door.x)}, y: ${Math.round(map.door.y)} }, bounds: { width: ${map.bounds.width}, height: ${map.bounds.height} } },\n`;
+      }
+      code += '};';
+      navigator.clipboard.writeText(code);
+      showToast('完整 LETTER_MAPS 已复制');
+    }
+
+    function saveToLibrary() {
+      LETTER_MAPS[currentChar] = JSON.parse(JSON.stringify(currentMap));
+      showToast(`字符 "${currentChar}" 已保存`);
+    }
+
+    function testMap() {
+      localStorage.setItem('testMap', JSON.stringify({ char: currentChar, map: currentMap }));
+      window.open('test.html', '_blank');
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2000);
+    }
+
+    init();
+  </script>
+</body>
+</html>
